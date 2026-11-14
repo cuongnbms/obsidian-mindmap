@@ -803,6 +803,15 @@ class ObsidianMindMapPlugin extends obsidian.Plugin {
     const zoomInBtn = zoomGroup.createEl('button', { cls: 'lmm-btn', text: '+' });
     const zoomOutBtn = zoomGroup.createEl('button', { cls: 'lmm-btn', text: '−' });
 
+    const levelGroup = toolbar.createDiv({ cls: 'lmm-toolbar-group' });
+    levelGroup.createSpan({ cls: 'lmm-toolbar-label', text: 'Level' });
+    for (const [label, level, key] of [['H1', 1, '1'], ['H2', 2, '2'], ['H3', 3, '3'], ['All', 0, '0']]) {
+      const btn = levelGroup.createEl('button', { cls: 'lmm-btn', text: label });
+      btn.title = level ? `Show down to level ${level} (${key})` : `Expand all (${key})`;
+      btn.onclick = () => this._collapseToLevel(overlay, level);
+    }
+    toolbar.addEventListener('keydown', (e) => this._handleLevelKey(overlay, e));
+
     const right = toolbar.createDiv({ cls: 'lmm-toolbar-group' });
     const exportBtn = right.createEl('button', { cls: 'lmm-btn', text: 'Export PNG' });
     exportBtn.onclick = () => this._exportPNG(overlay);
@@ -839,6 +848,9 @@ class ObsidianMindMapPlugin extends obsidian.Plugin {
 
     this._bindPanZoom(canvas, inner, overlay);
     this._bindCanvasClick(canvas, overlay);
+    // Focusable so level shortcuts work after clicking the background.
+    canvas.tabIndex = -1;
+    canvas.addEventListener('keydown', (e) => this._handleLevelKey(overlay, e));
 
     fitBtn.onclick = () => this._fitTo(canvas, inner);
     zoomInBtn.onclick = () => this._zoomBy(canvas, inner, 1.2);
@@ -1234,11 +1246,31 @@ class ObsidianMindMapPlugin extends obsidian.Plugin {
     rows[m.index] && rows[m.index].scrollIntoView({ block: 'nearest' });
   }
 
+  // Show the map down to `level` (root = 0): nodes at exactly that depth
+  // with children are collapsed, every other node is expanded.
+  // level <= 0 expands everything. Leaves are left as-is so a leaf heading
+  // written in italics (`*text*`) keeps its markers.
+  _collapseToLevel(overlay, level) {
+    const tree = overlay._lmmTreeInfo && overlay._lmmTreeInfo.tree;
+    if (!tree || !overlay._lmmFile) return;
+    const walk = (node, depth) => {
+      if (node.children.length === 0) return;
+      node.collapsed = level > 0 && depth === level;
+      node.children.forEach((c) => walk(c, depth + 1));
+    };
+    walk(tree, 0);
+    return this._persistCollapseState(overlay);
+  }
+
   _toggleCollapse(overlay, node) {
     if (!node || !node.children || node.children.length === 0) return;
-    const file = overlay._lmmFile;
-    if (!file) return;
+    if (!overlay._lmmFile) return;
     node.collapsed = !node.collapsed;
+    return this._persistCollapseState(overlay);
+  }
+
+  _persistCollapseState(overlay) {
+    const file = overlay._lmmFile;
     const newContent = this._serialize(overlay._lmmParsed, overlay._lmmTreeInfo);
     const selPath = overlay._lmmSelected ? this._pathFor(overlay._lmmSelected, overlay._lmmTreeInfo) : null;
     overlay._lmmLastContent = newContent;
@@ -1248,6 +1280,15 @@ class ObsidianMindMapPlugin extends obsidian.Plugin {
     this._renderTreeIntoCanvas(overlay, true);
     if (overlay._lmmSelected && overlay._lmmSelected._el) {
       overlay._lmmSelected._el.focus({ preventScroll: true });
+    } else {
+      // Selected node got hidden inside a collapsed branch (level collapse):
+      // drop the selection and keep focus in the map so shortcuts still work.
+      overlay._lmmSelected = null;
+      const canvas = overlay._lmmCanvas;
+      const toolbar = overlay.querySelector && overlay.querySelector('.lmm-toolbar');
+      if (canvas && !(toolbar && toolbar.contains(document.activeElement))) {
+        canvas.focus({ preventScroll: true });
+      }
     }
     overlay._lmmWriting = true;
     this.app.vault.modify(file, newContent).then(() => {
@@ -1256,6 +1297,19 @@ class ObsidianMindMapPlugin extends obsidian.Plugin {
       overlay._lmmWriting = false;
       console.error('[ObsidianMindMap] collapse persist error', e);
     });
+  }
+
+  // Digit shortcuts 1/2/3 = show down to that level, 0 = expand all.
+  // Ignored while editing text or when a modifier key is held.
+  _handleLevelKey(overlay, e) {
+    if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return;
+    const t = e.target;
+    if (t && (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName))) return;
+    const level = { '0': 0, '1': 1, '2': 2, '3': 3 }[e.key];
+    if (level === undefined) return;
+    e.preventDefault();
+    e.stopPropagation();
+    this._collapseToLevel(overlay, level);
   }
 
   _newNode(text) {
@@ -2050,6 +2104,9 @@ class ObsidianMindMapPlugin extends obsidian.Plugin {
         e.preventDefault();
         return;
       }
+      // preventDefault below blocks the default focus; focus explicitly so
+      // keyboard shortcuts (level 1/2/3/0) reach the canvas.
+      canvas.focus({ preventScroll: true });
       dragging = true;
       sx = e.clientX; sy = e.clientY;
       stx = canvas._lmm.tx; sty = canvas._lmm.ty;

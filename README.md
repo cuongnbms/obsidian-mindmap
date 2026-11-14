@@ -105,6 +105,21 @@ Themes adapt automatically to Obsidian's dark/light mode.
 - **Ctrl/Cmd + Scroll** to zoom in/out around the cursor
 - Toolbar buttons: **Fit** (fit all nodes into view), **+** / **−** (step zoom)
 
+### Collapse by Level
+
+The **Level** toolbar group shows the map down to a given depth (the root is level 0):
+
+| Button | Key   | Effect                                                                 |
+| ------ | ----- | ---------------------------------------------------------------------- |
+| **H1** | **1** | Show the root and its direct children; collapse those children         |
+| **H2** | **2** | Show down to level 2; collapse level-2 nodes that have children        |
+| **H3** | **3** | Show down to level 3; collapse level-3 nodes that have children        |
+| **All**| **0** | Expand every node                                                      |
+
+- Nodes deeper than the chosen level are expanded, so opening a collapsed node with **Space** reveals its whole branch.
+- The state is saved to the file the same way as single-node collapse (`*heading*`).
+- Keys work when the mind map has focus (after clicking a node or the background) and are ignored while editing node text.
+
 ### Node Editing
 
 Nodes can be edited directly on the canvas — changes are written back to the markdown file:
@@ -120,6 +135,7 @@ Nodes can be edited directly on the canvas — changes are written back to the m
 | Add child (without editing)   | Select node, press **Tab**                     |
 | Delete node                   | Select node, press **Delete** or **Backspace** |
 | Collapse / expand node        | Select node, press **Space**                   |
+| Collapse to level 1 / 2 / 3   | Press **1** / **2** / **3** (**0** = expand all) |
 | Drag node (change parent)     | Drag node to center of another node            |
 | Drag node (reorder)           | Drag node to top/bottom of another node        |
 | Right-click context menu      | Right-click on node                            |
