@@ -89,7 +89,7 @@ const ROOT_HGAP = 90;
 const PAD = 60;
 const PLACEHOLDER = 'New Title';
 
-class LightMindMapSettingTab extends obsidian.PluginSettingTab {
+class ObsidianMindMapSettingTab extends obsidian.PluginSettingTab {
   constructor(app, plugin) {
     super(app, plugin);
     this.plugin = plugin;
@@ -99,7 +99,7 @@ class LightMindMapSettingTab extends obsidian.PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    containerEl.createEl('h2', { text: 'Light Mindmap Settings' });
+    containerEl.createEl('h2', { text: 'Obsidian Mindmap Settings' });
 
     new obsidian.Setting(containerEl)
       .setName('Default theme')
@@ -177,7 +177,7 @@ class LightMindMapSettingTab extends obsidian.PluginSettingTab {
   }
 }
 
-class LightMindMapPlugin extends obsidian.Plugin {
+class ObsidianMindMapPlugin extends obsidian.Plugin {
   async onload() {
     await this.loadSettings();
     this._scan = obsidian.debounce(() => this._doScan(), 120);
@@ -229,8 +229,7 @@ class LightMindMapPlugin extends obsidian.Plugin {
     this.registerEvent(this.app.workspace.on('file-menu', (menu, file) => {
       if (!(file instanceof obsidian.TFolder)) return;
       menu.addItem((item) => {
-        const lang = window.localStorage.getItem('language') || 'en';
-        const title = lang.startsWith('zh') ? '新建轻量级脑图' : 'Create light mindmap';
+        const title = 'Create mindmap';
         item
           .setTitle(title)
           .setIcon('brain')
@@ -254,7 +253,7 @@ class LightMindMapPlugin extends obsidian.Plugin {
     this._injectDoodleFilter();
 
     // Register settings tab
-    this.addSettingTab(new LightMindMapSettingTab(this.app, this));
+    this.addSettingTab(new ObsidianMindMapSettingTab(this.app, this));
   }
 
   onunload() {
@@ -321,7 +320,7 @@ class LightMindMapPlugin extends obsidian.Plugin {
         try {
           this._render(overlay, content, fm, file.basename, view, file);
         } catch (e) {
-          console.error('[LightMindMap] render error', e);
+          console.error('[ObsidianMindMap] render error', e);
           overlay.empty();
           overlay.createDiv({ cls: 'lmm-empty', text: 'Mind map render error: ' + e.message });
         }
@@ -591,7 +590,7 @@ class LightMindMapPlugin extends obsidian.Plugin {
     if (!view || !view.contentEl) return;
     let fab = view.contentEl.querySelector(':scope > .lmm-fab');
     if (fab) return;
-    fab = view.contentEl.createEl('button', { cls: 'lmm-fab', text: 'Light Mindmap' });
+    fab = view.contentEl.createEl('button', { cls: 'lmm-fab', text: 'Obsidian Mindmap' });
     fab.onclick = () => {
       overlay.classList.remove('lmm-hidden');
       fab.remove();
@@ -659,7 +658,7 @@ class LightMindMapPlugin extends obsidian.Plugin {
         fm[key] = value;
       });
     } catch (e) {
-      console.error('[LightMindMap] frontmatter persist error', e);
+      console.error('[ObsidianMindMap] frontmatter persist error', e);
     }
   }
 
@@ -672,7 +671,7 @@ class LightMindMapPlugin extends obsidian.Plugin {
         }
       });
     } catch (e) {
-      console.error('[LightMindMap] frontmatter batch persist error', e);
+      console.error('[ObsidianMindMap] frontmatter batch persist error', e);
     }
   }
 
@@ -1255,7 +1254,7 @@ class LightMindMapPlugin extends obsidian.Plugin {
       requestAnimationFrame(() => { overlay._lmmWriting = false; });
     }).catch((e) => {
       overlay._lmmWriting = false;
-      console.error('[LightMindMap] collapse persist error', e);
+      console.error('[ObsidianMindMap] collapse persist error', e);
     });
   }
 
@@ -1319,34 +1318,29 @@ class LightMindMapPlugin extends obsidian.Plugin {
     this._persistAndRelayout(overlay);
   }
 
-  _isZh() {
-    return (window.localStorage.getItem('language') || 'en').startsWith('zh');
-  }
-
   _showNodeContextMenu(overlay, node, e) {
     e.preventDefault();
     e.stopPropagation();
     if (node.isVirtual) return;
 
-    const zh = this._isZh();
     const menu = new obsidian.Menu();
 
     menu.addItem((item) => {
-      item.setTitle(zh ? '编辑' : 'Edit')
+      item.setTitle('Edit')
         .setIcon('pencil')
         .onClick(() => this._startEdit(overlay, node));
     });
 
     if (node.depth !== 0) {
       menu.addItem((item) => {
-        item.setTitle(zh ? '创建同级节点' : 'Add Sibling')
+        item.setTitle('Add Sibling')
           .setIcon('plus')
           .onClick(() => this._addSibling(overlay, node, true));
       });
     }
 
     menu.addItem((item) => {
-      item.setTitle(zh ? '创建下级节点' : 'Add Child')
+      item.setTitle('Add Child')
         .setIcon('git-branch')
         .onClick(() => {
           if (node.collapsed && node.children && node.children.length) {
@@ -1359,7 +1353,7 @@ class LightMindMapPlugin extends obsidian.Plugin {
     if (node.children && node.children.length) {
       const collapsed = node.collapsed;
       menu.addItem((item) => {
-        item.setTitle(zh ? (collapsed ? '展开' : '折叠') : (collapsed ? 'Expand' : 'Collapse'))
+        item.setTitle(collapsed ? 'Expand' : 'Collapse')
           .setIcon(collapsed ? 'chevrons-down' : 'chevrons-up')
           .onClick(() => this._toggleCollapse(overlay, node));
       });
@@ -1368,7 +1362,7 @@ class LightMindMapPlugin extends obsidian.Plugin {
     if (node.parent) {
       menu.addSeparator();
       menu.addItem((item) => {
-        item.setTitle(zh ? '删除' : 'Delete')
+        item.setTitle('Delete')
           .setIcon('trash')
           .onClick(() => this._deleteNode(overlay, node));
       });
@@ -1382,7 +1376,7 @@ class LightMindMapPlugin extends obsidian.Plugin {
     if (!node) return;
     if (node.isVirtual) return;
     if (!node.parent) {
-      new obsidian.Notice(this._isZh() ? '无法删除根节点' : 'Cannot delete the root node');
+      new obsidian.Notice('Cannot delete the root node');
       return;
     }
     const parent = node.parent;
@@ -1437,7 +1431,7 @@ class LightMindMapPlugin extends obsidian.Plugin {
       requestAnimationFrame(() => { overlay._lmmWriting = false; });
     } catch (e) {
       overlay._lmmWriting = false;
-      console.error('[LightMindMap] persist error', e);
+      console.error('[ObsidianMindMap] persist error', e);
       new obsidian.Notice('Failed to save mindmap: ' + e.message);
     }
   }
@@ -2809,12 +2803,12 @@ class LightMindMapPlugin extends obsidian.Plugin {
       if (!saved) return;
       new obsidian.Notice('Mindmap exported successfully');
     } catch (e) {
-      console.error('[LightMindMap] export error:', e);
+      console.error('[ObsidianMindMap] export error:', e);
       new obsidian.Notice('Export failed: ' + e.message);
     }
   }
 }
 
-module.exports = LightMindMapPlugin;
+module.exports = ObsidianMindMapPlugin;
 
 /* nosourcemap */
