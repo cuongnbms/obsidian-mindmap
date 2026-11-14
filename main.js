@@ -202,6 +202,7 @@ class ObsidianMindMapPlugin extends obsidian.Plugin {
           o.classList.remove('lmm-hidden');
           this._removeRestoreFab(v);
         } else {
+          if (o._lmmCloseStylePop) o._lmmCloseStylePop(false);
           o.classList.add('lmm-hidden');
           this._showRestoreFab(v, o);
         }
@@ -302,6 +303,7 @@ class ObsidianMindMapPlugin extends obsidian.Plugin {
           overlay._lmmLayout = null;
           overlay._lmmLine = null;
           overlay._lmmNodeStyle = null;
+          overlay._lmmStylePopOpen = false;
           overlay._lmmLastContent = null;
         }
         if (overlay._lmmLastContent === content) continue;
@@ -675,6 +677,82 @@ class ObsidianMindMapPlugin extends obsidian.Plugin {
     }
   }
 
+  // Icon button with an accessible label (Obsidian shows aria-label as a
+  // tooltip). Falls back to `text` when the icon name is unknown, so a button
+  // never renders empty; `showText` keeps the text next to the icon.
+  _toolbarButton(parent, icon, text, label, showText = false) {
+    const btn = parent.createEl('button', { cls: 'lmm-btn' });
+    btn.setAttribute('aria-label', label);
+    const iconEl = btn.createSpan({ cls: 'lmm-btn-icon' });
+    obsidian.setIcon(iconEl, icon);
+    const hasIcon = !!iconEl.firstChild;
+    if (!hasIcon) iconEl.remove();
+    if (showText || !hasIcon) btn.createSpan({ cls: 'lmm-btn-text', text });
+    else btn.addClass('lmm-btn-icon-only');
+    return btn;
+  }
+
+  // Open/close the style popover. Closes on outside pointerdown, Escape or a
+  // second click on the button. The open state survives re-renders (changing
+  // a select writes frontmatter, which re-renders the whole overlay) so the
+  // popover stays open while the user tries several styles.
+  _bindStylePopover(overlay, btn, pop) {
+    const doc = overlay.ownerDocument || document;
+    let open = false;
+    const place = () => {
+      const o = overlay.getBoundingClientRect();
+      const b = btn.getBoundingClientRect();
+      pop.style.left = `${Math.max(8, b.left - o.left)}px`;
+      pop.style.top = `${b.bottom - o.top + 6}px`;
+    };
+    // Overlay hidden or removed by a path that did not close the popover:
+    // drop the listeners without touching the event.
+    const stale = () => !overlay.isConnected || overlay.classList.contains('lmm-hidden');
+    const onPointerDown = (e) => {
+      if (stale()) return close(false);
+      if (btn.contains(e.target) || pop.contains(e.target)) return;
+      close(false);
+    };
+    const onKey = (e) => {
+      if (stale()) return close(false);
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopPropagation();
+      close(false);
+      btn.focus({ preventScroll: true });
+    };
+    const openPop = () => {
+      if (open) return;
+      open = true;
+      overlay._lmmStylePopOpen = true;
+      pop.removeClass('lmm-hidden');
+      btn.addClass('lmm-btn-open');
+      btn.setAttribute('aria-expanded', 'true');
+      place();
+      doc.addEventListener('pointerdown', onPointerDown, true);
+      doc.addEventListener('keydown', onKey, true);
+    };
+    // keepRemembered: true when closing only because the overlay re-renders.
+    const close = (keepRemembered) => {
+      if (!keepRemembered) overlay._lmmStylePopOpen = false;
+      if (!open) return;
+      open = false;
+      pop.addClass('lmm-hidden');
+      btn.removeClass('lmm-btn-open');
+      btn.setAttribute('aria-expanded', 'false');
+      doc.removeEventListener('pointerdown', onPointerDown, true);
+      doc.removeEventListener('keydown', onKey, true);
+    };
+    btn.onclick = () => (open ? close(false) : openPop());
+    overlay._lmmCloseStylePop = close;
+    const prevCleanup = overlay._lmmCleanup;
+    overlay._lmmCleanup = () => {
+      if (prevCleanup) prevCleanup();
+      close(true);
+    };
+    if (overlay._lmmStylePopOpen) openPop();
+  }
+
   _render(overlay, content, frontmatter, fileBasename, view, file) {
     overlay._lmmLastContent = content;
     overlay._lmmView = view;
@@ -728,12 +806,30 @@ class ObsidianMindMapPlugin extends obsidian.Plugin {
     overlay._lmmDragTimer = null;
 
     if (overlay._lmmCleanup) overlay._lmmCleanup();
+    overlay._lmmCleanup = null;
     overlay.empty();
 
     const toolbar = overlay.createDiv({ cls: 'lmm-toolbar' });
-    const layoutGroup = toolbar.createDiv({ cls: 'lmm-toolbar-group' });
-    layoutGroup.createSpan({ cls: 'lmm-toolbar-label', text: 'Layout' });
-    const layoutSelect = layoutGroup.createEl('select', { cls: 'lmm-select' });
+
+    // Style popover: Layout / Theme / Line / Node live behind one button so
+    // the toolbar fits on a single row. It hangs off the overlay, not the
+    // toolbar, because the toolbar scrolls horizontally and would clip it.
+    const styleGroup = toolbar.createDiv({ cls: 'lmm-toolbar-group' });
+    const styleBtn = this._toolbarButton(styleGroup, 'palette', 'Style', 'Layout, theme, line and node style', true);
+    styleBtn.addClass('lmm-btn-style');
+    const chevron = styleBtn.createSpan({ cls: 'lmm-btn-chevron' });
+    obsidian.setIcon(chevron, 'chevron-down');
+    styleBtn.setAttribute('aria-haspopup', 'true');
+    styleBtn.setAttribute('aria-expanded', 'false');
+    const stylePop = overlay.createDiv({ cls: 'lmm-style-pop lmm-hidden' });
+    const styleRow = (label) => {
+      const row = stylePop.createEl('label', { cls: 'lmm-style-row' });
+      row.createSpan({ cls: 'lmm-toolbar-label', text: label });
+      return row;
+    };
+    this._bindStylePopover(overlay, styleBtn, stylePop);
+
+    const layoutSelect = styleRow('Layout').createEl('select', { cls: 'lmm-select' });
     for (const l of [
       { id: 'balanced', label: 'Balanced' },
       { id: 'right', label: 'Right' },
@@ -752,9 +848,7 @@ class ObsidianMindMapPlugin extends obsidian.Plugin {
       this._persistFrontmatterValue(file, 'mindmap-layout', id);
     };
 
-    const themeGroup = toolbar.createDiv({ cls: 'lmm-toolbar-group' });
-    themeGroup.createSpan({ cls: 'lmm-toolbar-label', text: 'Theme' });
-    const themeSelect = themeGroup.createEl('select', { cls: 'lmm-select' });
+    const themeSelect = styleRow('Theme').createEl('select', { cls: 'lmm-select' });
     for (const id of Object.keys(THEMES)) {
       const opt = themeSelect.createEl('option', { value: id, text: THEMES[id].name });
       if (id === overlay._lmmTheme) opt.selected = true;
@@ -767,9 +861,7 @@ class ObsidianMindMapPlugin extends obsidian.Plugin {
       this._persistFrontmatterValue(file, 'mindmap-theme', id);
     };
 
-    const lineGroup = toolbar.createDiv({ cls: 'lmm-toolbar-group' });
-    lineGroup.createSpan({ cls: 'lmm-toolbar-label', text: 'Line' });
-    const lineSelect = lineGroup.createEl('select', { cls: 'lmm-select' });
+    const lineSelect = styleRow('Line').createEl('select', { cls: 'lmm-select' });
     for (const id of Object.keys(LINE_STYLES)) {
       const opt = lineSelect.createEl('option', { value: id, text: LINE_STYLES[id].name });
       if (id === overlay._lmmLine) opt.selected = true;
@@ -782,9 +874,7 @@ class ObsidianMindMapPlugin extends obsidian.Plugin {
       this._persistFrontmatterValue(file, 'mindmap-line', id);
     };
 
-    const nodeGroup = toolbar.createDiv({ cls: 'lmm-toolbar-group' });
-    nodeGroup.createSpan({ cls: 'lmm-toolbar-label', text: 'Node' });
-    const nodeSelect = nodeGroup.createEl('select', { cls: 'lmm-select' });
+    const nodeSelect = styleRow('Node').createEl('select', { cls: 'lmm-select' });
     for (const id of Object.keys(NODE_STYLES)) {
       const opt = nodeSelect.createEl('option', { value: id, text: NODE_STYLES[id].name });
       if (id === overlay._lmmNodeStyle) opt.selected = true;
@@ -797,26 +887,25 @@ class ObsidianMindMapPlugin extends obsidian.Plugin {
       this._persistFrontmatterValue(file, 'mindmap-node', id);
     };
 
-    const zoomGroup = toolbar.createDiv({ cls: 'lmm-toolbar-group' });
-    zoomGroup.createSpan({ cls: 'lmm-toolbar-label', text: 'Zoom' });
-    const fitBtn = zoomGroup.createEl('button', { cls: 'lmm-btn', text: 'Fit' });
-    const zoomInBtn = zoomGroup.createEl('button', { cls: 'lmm-btn', text: '+' });
-    const zoomOutBtn = zoomGroup.createEl('button', { cls: 'lmm-btn', text: '−' });
+    const zoomGroup = toolbar.createDiv({ cls: 'lmm-toolbar-group lmm-seg' });
+    const fitBtn = this._toolbarButton(zoomGroup, 'maximize', 'Fit', 'Fit to view');
+    const zoomInBtn = this._toolbarButton(zoomGroup, 'zoom-in', '+', 'Zoom in');
+    const zoomOutBtn = this._toolbarButton(zoomGroup, 'zoom-out', '−', 'Zoom out');
 
-    const levelGroup = toolbar.createDiv({ cls: 'lmm-toolbar-group' });
-    levelGroup.createSpan({ cls: 'lmm-toolbar-label', text: 'Level' });
+    const levelGroup = toolbar.createDiv({ cls: 'lmm-toolbar-group lmm-seg' });
     for (const [label, level, key] of [['H1', 1, '1'], ['H2', 2, '2'], ['H3', 3, '3'], ['All', 0, '0']]) {
       const btn = levelGroup.createEl('button', { cls: 'lmm-btn', text: label });
-      btn.title = level ? `Show down to level ${level} (${key})` : `Expand all (${key})`;
+      btn.setAttribute('aria-label', level ? `Show down to level ${level} (${key})` : `Expand all (${key})`);
       btn.onclick = () => this._collapseToLevel(overlay, level);
     }
     toolbar.addEventListener('keydown', (e) => this._handleLevelKey(overlay, e));
 
-    const right = toolbar.createDiv({ cls: 'lmm-toolbar-group' });
-    const exportBtn = right.createEl('button', { cls: 'lmm-btn', text: 'Export PNG' });
+    const right = toolbar.createDiv({ cls: 'lmm-toolbar-group lmm-toolbar-right' });
+    const exportBtn = this._toolbarButton(right, 'download', 'Export PNG', 'Export PNG');
     exportBtn.onclick = () => this._exportPNG(overlay);
-    const editBtn = right.createEl('button', { cls: 'lmm-btn lmm-btn-ghost', text: 'Edit Markdown' });
+    const editBtn = this._toolbarButton(right, 'pencil', 'Edit Markdown', 'Edit Markdown');
     editBtn.onclick = () => {
+      overlay._lmmCloseStylePop(false);
       overlay.classList.add('lmm-hidden');
       this._showRestoreFab(view, overlay);
     };

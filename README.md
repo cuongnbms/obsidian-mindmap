@@ -51,7 +51,7 @@ The mind map updates in real time as you edit the source.
 
 ### Layouts
 
-Five layout modes, switchable from the toolbar dropdown or via command:
+Five layout modes, switchable from the toolbar's **Style** menu or via command:
 
 | Layout           | Description                                                                    |
 | ---------------- | ------------------------------------------------------------------------------ |
@@ -103,11 +103,11 @@ Themes adapt automatically to Obsidian's dark/light mode.
 - **Pinch** to zoom on touch devices
 - **Scroll** to pan vertically/horizontally
 - **Ctrl/Cmd + Scroll** to zoom in/out around the cursor
-- Toolbar buttons: **Fit** (fit all nodes into view), **+** / **−** (step zoom)
+- Toolbar buttons: **Fit** (fit all nodes into view), **Zoom in** / **Zoom out** (step zoom)
 
 ### Collapse by Level
 
-The **Level** toolbar group shows the map down to a given depth (the root is level 0):
+The **H1 / H2 / H3 / All** toolbar buttons show the map down to a given depth (the root is level 0):
 
 | Button | Key   | Effect                                                                 |
 | ------ | ----- | ---------------------------------------------------------------------- |
@@ -173,7 +173,7 @@ All per-file display preferences are written to frontmatter and restored on next
 
 ### Toggle Source View
 
-- **Edit Markdown** button in the toolbar hides the mind map and shows a floating **Obsidian Mindmap** button
+- **Edit Markdown** (pencil) button in the toolbar hides the mind map and shows a floating **Obsidian Mindmap** button
 - Returning from source view auto-fits the mindmap to the viewport
 - Command palette: **Toggle mindmap / source view**
 - Command palette: **Cycle mindmap layout (balanced / right / left / tree / radial)**
@@ -190,7 +190,7 @@ During node editing, typing `[[` triggers an autocomplete popup that searches al
 
 ### Export PNG
 
-Click the **Export PNG** button in the toolbar to save the current mindmap as a high-resolution PNG image (2x scale). A system file dialog will let you choose the save location.
+Click the **Export PNG** (download) button in the toolbar to save the current mindmap as a high-resolution PNG image (2x scale). A system file dialog will let you choose the save location.
 
 ## Installation
 
