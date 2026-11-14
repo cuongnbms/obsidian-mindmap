@@ -1768,9 +1768,10 @@ class ObsidianMindMapPlugin extends obsidian.Plugin {
   // ────────────────────────────────────────────────────────────────
 
   _measureNodes(node) {
-    const r = node._el.getBoundingClientRect();
-    node.width = Math.max(r.width, 40);
-    node.height = Math.max(r.height, 24);
+    // offsetWidth/Height are layout px, unaffected by the canvas zoom transform
+    // (and the :hover scale); getBoundingClientRect would return zoomed px.
+    node.width = Math.max(node._el.offsetWidth, 40);
+    node.height = Math.max(node._el.offsetHeight, 24);
     if (node.collapsed) return;
     for (const c of node.children) this._measureNodes(c);
   }
