@@ -39,29 +39,54 @@
 
 .lmm-toolbar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  padding: 8px 14px;
+  flex-wrap: nowrap;
+  gap: 8px;
+  padding: 6px 12px;
   background: var(--background-secondary);
   border-bottom: 1px solid var(--background-modifier-border);
   align-items: center;
   flex-shrink: 0;
+  /* Single row: on very narrow panes scroll sideways instead of wrapping. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
   backdrop-filter: blur(6px);
+  container-type: inline-size;
+}
+
+/* Narrow panes (phones, split views): Style becomes icon-only. */
+@container (max-width: 480px) {
+  .lmm-btn-style .lmm-btn-text {
+    display: none;
+  }
+  .lmm-overlay .lmm-seg .lmm-btn:not(.lmm-btn-icon-only) {
+    padding: 0 6px;
+  }
+  .lmm-toolbar-group + .lmm-toolbar-group {
+    padding-left: 6px;
+  }
+}
+
+.lmm-toolbar::-webkit-scrollbar {
+  display: none;
 }
 
 .lmm-toolbar-group {
   display: flex;
-  gap: 6px;
+  gap: 4px;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .lmm-toolbar-group + .lmm-toolbar-group {
   border-left: 1px solid var(--background-modifier-border);
-  padding-left: 10px;
+  padding-left: 8px;
 }
 
-.lmm-toolbar-right {
+.lmm-toolbar-group.lmm-toolbar-right {
   margin-left: auto;
+  border-left: none;
+  padding-left: 0;
 }
 
 .lmm-toolbar-label {
@@ -73,26 +98,94 @@
   font-weight: 600;
 }
 
-.lmm-btn {
+/* Scoped under .lmm-overlay so it wins over Obsidian's default
+   `button:not(.clickable-icon)` styles (grey fill, shadow, fixed height). */
+.lmm-overlay .lmm-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 28px;
+  padding: 0 10px;
   background: var(--background-primary);
   color: var(--text-normal);
   border: 1px solid var(--background-modifier-border);
-  padding: 5px 12px;
   border-radius: 8px;
+  box-shadow: none;
   cursor: pointer;
   font-size: 12px;
   font-weight: 500;
   line-height: 1;
-  transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  white-space: nowrap;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 }
 
-.lmm-btn:hover {
+.lmm-overlay .lmm-btn:hover,
+.lmm-overlay .lmm-btn:active {
   background: var(--background-modifier-hover);
-  transform: translateY(-1px);
+  box-shadow: none;
 }
 
-.lmm-btn:active {
-  transform: translateY(0);
+.lmm-overlay .lmm-btn:focus-visible {
+  outline: 2px solid var(--lmm-theme-root-accent, #6366F1);
+  outline-offset: 1px;
+  box-shadow: none;
+}
+
+.lmm-overlay .lmm-btn-icon-only {
+  width: 28px;
+  padding: 0;
+}
+
+.lmm-btn-icon,
+.lmm-btn-chevron {
+  display: inline-flex;
+  align-items: center;
+}
+
+.lmm-btn-icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+.lmm-btn-chevron {
+  margin-left: -2px;
+  opacity: 0.6;
+}
+
+.lmm-btn-chevron svg {
+  width: 14px;
+  height: 14px;
+}
+
+.lmm-overlay .lmm-btn-open {
+  background: var(--background-modifier-hover);
+  border-color: var(--lmm-theme-root-accent, #6366F1);
+}
+
+/* Segmented groups (zoom, level): buttons joined into one pill. */
+.lmm-toolbar-group.lmm-seg {
+  gap: 0;
+}
+
+.lmm-overlay .lmm-seg .lmm-btn {
+  border-radius: 0;
+  margin-left: -1px;
+}
+
+.lmm-overlay .lmm-seg .lmm-btn:first-child {
+  border-radius: 8px 0 0 8px;
+  margin-left: 0;
+}
+
+.lmm-overlay .lmm-seg .lmm-btn:last-child {
+  border-radius: 0 8px 8px 0;
+}
+
+.lmm-overlay .lmm-seg .lmm-btn:hover,
+.lmm-overlay .lmm-seg .lmm-btn:focus-visible {
+  position: relative;
+  z-index: 1;
 }
 
 .lmm-btn-active {
@@ -107,8 +200,34 @@
   color: #fff;
 }
 
-.lmm-btn-ghost {
-  background: transparent;
+/* Style popover (Layout / Theme / Line / Node). Positioned by JS against
+   the overlay, below the Style button. */
+.lmm-style-pop {
+  position: absolute;
+  z-index: 50;
+  display: grid;
+  gap: 8px;
+  min-width: 220px;
+  padding: 10px 12px;
+  background: var(--background-primary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+}
+
+.lmm-style-pop.lmm-hidden {
+  display: none;
+}
+
+.lmm-style-row {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.lmm-style-row .lmm-select {
+  width: 100%;
 }
 
 .lmm-select {
