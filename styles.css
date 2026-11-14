@@ -143,6 +143,11 @@
   cursor: grabbing;
 }
 
+/* Canvas is focusable (tabindex=-1) only so level shortcuts work */
+.lmm-canvas:focus {
+  outline: none;
+}
+
 .lmm-inner {
   position: absolute;
   left: 0;
